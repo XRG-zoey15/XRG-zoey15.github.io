@@ -3,10 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>西藏动态行程规划</title>
+  <title>西藏动态行程规划 本地缓存版</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- 引入 Pako 库用于文件压缩 -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
   <script type="text/javascript">
     window._AMapSecurityConfig = {
       securityJsCode: "470f12745dd641e4be3ca8440eec7806"
@@ -14,9 +12,17 @@
   </script>
   <script src="https://webapi.amap.com/maps?v=2.0&key=b29ac5f04a5004b5c2988cb573bc20c8"></script>
   <style>
-    * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-    html, body { width: 100%; overflow-x: hidden; }
-    body { font-size: 15px; }
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      overflow-x: hidden;
+    }
+    body {
+      font-size: 15px;
+    }
     #map-container { height: 320px; width: 100%; }
     @media (min-width:768px) { #map-container { height: 500px; } }
     .card-shadow { box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
@@ -25,7 +31,21 @@
     .day-tab-item { flex-shrink:0; border-radius:999px; padding:6px 12px; min-width: 72px; text-align:center; }
     .btn-round { border-radius:999px !important; }
     .btn-cute { border-radius: 16px !important; padding: 6px 8px !important; font-size:12px; min-height: 32px; touch-action: manipulation; }
-    .btn-del-circle { border-radius: 9999px !important; width: 28px !important; height: 28px !important; padding: 0 !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; font-size: 14px !important; flex-shrink: 0 !important; min-height: unset !important; }
+    .btn-del-circle {
+      border-radius: 9999px !important;
+      width: 28px !important;
+      height: 28px !important;
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-size: 14px !important;
+      flex-shrink: 0 !important;
+      min-height: unset !important;
+      z-index: 10;
+      position: relative;
+      right: -4px;
+    }
     .dot-item { width:14px;height:14px;border-radius:999px;display:inline-block;}
     .edit-text:focus{outline:1px solid #93c5fd;background:#f0f7ff;}
     .label-edit { cursor:text; padding:2px 4px; border-radius:6px; display:inline-block; }
@@ -35,13 +55,46 @@
     .timeline-cost { width: 85px !important; flex: none !important; }
     .traffic-select { width: fit-content !important; min-width: 130px !important; field-sizing: content; flex: none !important; }
     .timecost-input { width: 140px !important; flex: none !important; }
-    input, select { padding: 8px 10px !important; font-size: 14px; }
-    button { touch-action: manipulation; }
+    .mainloc-half-input { max-width: 48% !important; flex: 0 0 48% !important; }
+    .hotel-half-input { max-width: 48% !important; flex: 0 0 48% !important; }
+    input, select {
+      padding: 8px 10px !important;
+      font-size: 14px;
+    }
+    button {
+      touch-action: manipulation;
+    }
+    .path-group-wrap {
+      border: 1px solid #e5e7eb;
+      border-radius: 20px;
+      padding: 14px;
+      margin-top: 10px;
+      background: #fafafa;
+    }
+    /* 紧凑三列布局，间距16px */
+    .path-row-grid {
+      display: grid;
+      grid-template-columns: 1fr 135px 145px;
+      gap: 16px;
+      align-items: start;
+    }
+    @media (max-width:767px) {
+      .path-row-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+    }
+    .addr-desc-text {
+      font-size: 11px;
+      color: #059669;
+      margin-top: 4px;
+      line-height: 1.3;
+    }
   </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
 <div class="max-w-6xl mx-auto px-3 py-4 md:px-6 md:py-6">
-  <h1 class="text-lg md:text-2xl font-bold text-center mb-4 text-blue-600" contenteditable="true" id="trip-title">西藏动态行程规划 本地缓存版</h1>
+  <h1 class="text-lg md:text-2xl font-bold text-center mb-4 text-blue-600" contenteditable="true">西藏动态行程规划 本地缓存版</h1>
 
   <div id="map-container" class="rounded-3xl card-shadow mb-6 bg-white"></div>
 
@@ -61,16 +114,14 @@
       <p id="avg-money" class="text-xl font-semibold">¥0.00</p>
     </div>
     <div>
-      <button onclick="exportBackup()" class="w-full bg-emerald-500 text-white py-2 btn-round text-sm">导出压缩备份</button>
-      <input type="file" id="importFileInput" accept=".json,.gz" style="display:none" onchange="importCompressed(event)">
-      <button onclick="document.getElementById('importFileInput').click()" class="w-full bg-orange-500 text-white py-2 btn-round text-sm mt-2">选择并导入备份</button>
+      <button onclick="exportBackup()" class="w-full bg-emerald-500 text-white py-2 btn-round text-sm">导出备份JSON</button>
     </div>
   </div>
 
   <div class="mb-4">
     <button onclick="toggleImportBox()" class="bg-slate-200 px-4 py-2 btn-round text-sm w-full">展开收起批量导入面板</button>
     <div id="importBox" class="hidden bg-white rounded-3xl p-4 card-shadow mt-3">
-      <h2 class="font-bold mb-2 text-sm">批量导入行程 (格式示例: D1 拉萨→八一镇 住宿八一镇)</h2>
+      <h2 class="font-bold mb-2 text-sm">批量导入行程 格式示例 D1 拉萨→八一镇 住宿八一镇</h2>
       <textarea id="batch-input" class="w-full border rounded-2xl p-2 h-20 text-sm" placeholder="粘贴全部行程清单"></textarea>
       <button onclick="batchImport()" class="mt-2 bg-blue-500 text-white px-4 py-2 btn-round w-full">一键导入生成行程</button>
     </div>
@@ -88,17 +139,22 @@ let polylineList = [];
 let markers = [];
 const STORAGE_KEY = "xizang_trip_data";
 let activeView = "overview";
-const colorPool = ["#ff9500","#22c55e","#a855f7","#3b82f6","#ef4444","#ec4899","#14b8a6","#f59e0b","#84cc16","#0ea5e9","#f43f5e","#7c3aed","#06b6d4","#e11d48","#65a30d","#0284c7"];
+// 多组彩色，不同天数自动轮换
+const colorPool = [
+  "#ff9500","#22c55e","#a855f7","#3b82f6","#ef4444","#ec4899","#14b8a6","#f59e0b","#84cc16","#0ea5e9","#f43f5e","#7c3aed","#06b6d4","#e11d48","#65a30d","#0284c7"
+];
+const posCache = {};
 
-// 1. 防抖工具函数
 function debounce(func, wait) {
-    let timeout;
-    return function(...args) {
-        const context = this;
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(context, args), wait);
-    };
+  let timeout;
+  return function(...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), wait);
+  }
 }
+const debouncedGetMainLoc = debounce(getMainLocPos, 500);
+const debouncedGetHotelLoc = debounce(getHotelLocPos, 500);
+const debouncedGetTimePointLoc = debounce(getSingleLocPos, 500);
 
 window.onload = function(){
   initMap();
@@ -106,45 +162,50 @@ window.onload = function(){
   renderDayTabs();
   renderContent();
   calcTotalMoney();
-  // 全局监听数字输入
   document.addEventListener("input", function(e){
     if(e.target.classList.contains("timeline-cost")){
       calcTotalMoney();
-      const detailCard = document.querySelector(".card-shadow.grid");
-      if(detailCard){
-        const dayId = Number(detailCard.querySelector("h3 span").innerText.replace("D",""));
-        const dayItem = window.tripData.find(d=>d.dayNum === dayId);
-        if(dayItem) refreshDayTotalText(dayItem);
-      }
+      const currentDay = window.tripData.find(d => d.dayNum === activeView);
+      if(currentDay) refreshDayTotalText(currentDay);
     }
   })
 }
 
 function initMap(){
   map = new AMap.Map("map-container", {zoom:7, center:[91.128,29.654], resizeEnable:true});
+  // 地图加载完成后强制刷新点位，解决图标空白
+  map.on("complete", function(){
+    refreshMapRoute();
+  })
 }
 
 function loadLocalData(){
   const local = localStorage.getItem(STORAGE_KEY);
-  if(!local) window.tripData = [];
-  else window.tripData = JSON.parse(local);
+  window.tripData = local ? JSON.parse(local) : [];
   window.tripData.forEach((item,idx)=>{
     if(!item.timeList) item.timeList = [];
     if(!item.dayNote) item.dayNote = {text:"", weight:"normal", size:"14", color:"#333333"};
     if(!item.dateStr) item.dateStr = "";
     if(!item.dateLabel) item.dateLabel = "日期";
-    if(!item.mainLocLabel) item.mainLocLabel = "主线行程定位";
-    if(!item.timeCostLabel) item.timeCostLabel = "花费时间";
-    if(!item.trafficLabel) item.trafficLabel = "交通备注";
     if(!item.hotelLabel) item.hotelLabel = "住宿地点";
     if(!item.timeLineLabel) item.timeLineLabel = "当日时间线";
     if(!item.noteLabel) item.noteLabel = "当日小结随笔备注";
-    if(!item.mainLocList) item.mainLocList = item.mainLoc ? [{name:item.mainLoc, pos:item.mainLocPos}] : [];
-    delete item.mainLoc; delete item.mainLocPos;
-    if(!item.trafficList) item.trafficList = item.remark ? [{content:item.remark}] : [];
-    delete item.remark;
-    if(!item.hotelList) item.hotelList = item.hotel ? [{name:item.hotel, pos:item.hotelLocPos}] : [];
-    delete item.hotel; delete item.hotelLoc; delete item.hotelLocPos;
+
+    if(!item.pathList) {
+      item.pathList = [{
+        mainLocList: item.mainLocList || [],
+        trafficList: item.trafficList || [{content:""}],
+        timeCostList: item.timeCostList || [{content:""}]
+      }]
+    }
+    delete item.mainLocList;
+    delete item.trafficList;
+    delete item.timeCostList;
+
+    if(!item.hotelList) item.hotelList = [];
+    item.hotelList.forEach(h=>{
+      if(!h.addrDetail) h.addrDetail = "";
+    })
     item.dotColor = colorPool[idx % colorPool.length];
     item.timeList.forEach(t=>{
       if(!t.locList) t.locList = [{name:"", pos:null}];
@@ -163,7 +224,7 @@ function renderDayTabs(){
   wrap.innerHTML = "";
   const overviewTab = document.createElement("button");
   overviewTab.className = `day-tab-item btn-round ${activeView === "overview" ? "bg-blue-500 text-white":"bg-slate-200"}`;
-  overviewTab.textContent = "总览";
+  overviewTab.innerText = "总览";
   overviewTab.onclick = ()=>{activeView="overview";renderDayTabs();renderContent();};
   wrap.appendChild(overviewTab);
 
@@ -176,76 +237,122 @@ function renderDayTabs(){
       const dateArr = item.dateStr.split("/");
       if(dateArr.length >=2) dateText = `${dateArr[1]}/${dateArr[2]}`;
     }
-    const span1 = document.createElement("span"); span1.textContent = `D${item.dayNum}`;
-    const span2 = document.createElement("span"); span2.className = "text-xs opacity-80"; span2.textContent = dateText;
-    tab.appendChild(span1); tab.appendChild(span2);
-    tab.onclick = ()=>{ activeView = item.dayNum; renderDayTabs(); renderContent(); }
+    tab.innerHTML = `<span>D${item.dayNum}</span><span class="text-xs opacity-80">${dateText}</span>`;
+    tab.onclick = ()=>{
+      activeView = item.dayNum;
+      renderDayTabs();
+      renderContent();
+    }
     wrap.appendChild(tab);
   })
 }
 
+// 地图Marker：完全匹配示例圆形数字图标，修复图标不显示问题
 function refreshMapRoute(){
   if(!map) return;
   markers.forEach(m=>map.remove(m)); markers = [];
   polylineList.forEach(p=>map.remove(p)); polylineList = [];
-  const pathArr = [];
+  let globalAllPoints = [];
   window.tripData.sort((a,b)=>a.dayNum - b.dayNum);
+
   window.tripData.forEach(day=>{
-    if(!day.mainLocList || day.mainLocList.length ===0 || !day.mainLocList[0].pos) return;
-    const pos = day.mainLocList[0].pos;
-    pathArr.push(pos);
-    const marker = new AMap.Marker({
-      position:pos,
-      title:`D${day.dayNum} ${day.mainLocList[0].name}`,
-      label:{content:`D${day.dayNum}`, direction:"top"}
-    })
-    marker.on("click",()=>{
-      const url = `amapuri://route/plan/?sid=&slat=&slon=&sname=&did=&dlat=${pos.lat}&dlon=${pos.lng}&dname=${encodeURIComponent(day.mainLocList[0].name)}&dev=0&t=0`;
-      window.location.href = url;
-    })
-    map.add(marker); markers.push(marker);
-    if(pathArr.length>=2){
-      const line = new AMap.Polyline({
-        path:[pathArr[pathArr.length-2], pos],
-        strokeColor:day.dotColor,
-        strokeWeight:4,
-        strokeOpacity:0.7
+    const dayPointGroup = [];
+    day.pathList.forEach(path=>{
+      path.mainLocList.forEach(loc=>{
+        if(!loc.pos) return;
+        const pos = loc.pos;
+        dayPointGroup.push(pos);
+        globalAllPoints.push(pos);
+        // 原生无转义SVG，彻底解决图标空白；粗白外圈、居中粗白色纯数字
+        const svg = `<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<circle cx="24" cy="24" r="22" fill="${day.dotColor}" stroke="#ffffff" stroke-width="5"/>
+<text x="24" y="29" font-size="22" font-weight="900" fill="#ffffff" text-anchor="middle">${day.dayNum}</text>
+</svg>`;
+        const svgBase64 = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svg)));
+        const marker = new AMap.Marker({
+          position: pos,
+          icon: new AMap.Icon({
+            size: new AMap.Size(48,48),
+            imageSize: new AMap.Size(48,48),
+            image: svgBase64
+          }),
+          offset: new AMap.Pixel(-24, -24),
+          title: `第${day.dayNum}天 ${loc.name}`,
+          label: {
+            content: `${loc.name}`,
+            direction: "top",
+            offset: new AMap.Pixel(0, -10),
+            style: {
+              background: "#fff",
+              borderRadius: "10px",
+              padding: "2px 8px",
+              border: "none",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.1)"
+            }
+          }
+        })
+        marker.on("click",()=>{
+          const url = `amapuri://route/plan/?did=&dlat=${pos.lat}&dlon=${pos.lng}&dname=${encodeURIComponent(loc.name)}&dev=0&t=0`;
+          window.location.href = url;
+        })
+        map.add(marker);
+        markers.push(marker);
       })
-      map.add(line); polylineList.push(line);
+    })
+    // 同一天内部虚线
+    for(let i=1; i<dayPointGroup.length; i++){
+      const dashLine = new AMap.Polyline({
+        path: [dayPointGroup[i-1], dayPointGroup[i]],
+        strokeColor: day.dotColor,
+        strokeWeight: 3,
+        strokeOpacity: 0.6,
+        strokeDasharray: "8,6"
+      })
+      map.add(dashLine);
+      polylineList.push(dashLine);
     }
   })
+  // 跨天实线连接
+  for(let i=1; i<globalAllPoints.length; i++){
+    const targetDay = window.tripData.find(d=>{
+      let has = false;
+      d.pathList.forEach(p=>p.mainLocList.forEach(l=>{ if(l.pos?.lng === globalAllPoints[i-1].lng && l.pos?.lat === globalAllPoints[i-1].lat) has=true; }));
+      return has;
+    });
+    const solidLine = new AMap.Polyline({
+      path: [globalAllPoints[i-1], globalAllPoints[i]],
+      strokeColor: targetDay.dotColor,
+      strokeWeight:4,
+      strokeOpacity:0.7
+    })
+    map.add(solidLine);
+    polylineList.push(solidLine);
+  }
 }
 
 function calcSingleDayCost(dayItem){
   let sum = 0;
-  dayItem.timeList.forEach(t=>{ sum += (Number(t.cost) || 0); });
+  dayItem.timeList.forEach(t=> sum += Number(t.cost || 0));
   return sum.toFixed(2);
 }
 
 function refreshDayTotalText(dayItem){
-  const totalTextEl = document.querySelector(".border-y .text-red-500.font-semibold");
-  if(totalTextEl) totalTextEl.textContent = `¥${calcSingleDayCost(dayItem)}`;
+  const el = document.querySelector(".border-y .text-red-500.font-semibold");
+  if(el) el.innerText = `¥${calcSingleDayCost(dayItem)}`;
 }
 
 function calcTotalMoney(){
   let all = 0;
   window.tripData.forEach(d=> all += Number(calcSingleDayCost(d)));
-  const dayNum = window.tripData.length;
-  document.getElementById("total-money").textContent = `¥${all.toFixed(2)}`;
-  document.getElementById("avg-money").textContent = dayNum>0 ? `¥${(all/dayNum).toFixed(2)}` : "¥0.00";
+  const dayCount = window.tripData.length;
+  document.getElementById("total-money").innerText = `¥${all.toFixed(2)}`;
+  document.getElementById("avg-money").innerText = dayCount ? `¥${(all/dayCount).toFixed(2)}` : "¥0.00";
+  document.getElementById("total-day").innerText = dayCount;
 }
 
-// 3. 防抖封装的高德坐标获取
-const debouncedGetMainLocPos = debounce(getMainLocPos, 500);
-const debouncedGetHotelLocPos = debounce(getHotelLocPos, 500);
-const debouncedGetSingleLocPos = debounce(getSingleLocPos, 500);
-
-// 4. 渲染HTML，使用 createElement 防范 XSS
 function renderContent(){
   const wrap = document.getElementById("page-content");
   wrap.innerHTML = "";
-  window.tripData.sort((a,b)=>a.dayNum - b.dayNum);
-  document.getElementById("total-day").textContent = window.tripData.length;
   refreshMapRoute();
   calcTotalMoney();
 
@@ -253,262 +360,317 @@ function renderContent(){
     window.tripData.forEach(item=>{
       const overviewItem = document.createElement("div");
       overviewItem.className="bg-white rounded-3xl p-4 card-shadow mb-3 cursor-pointer";
-      const mainName = item.mainLocList.length>0 ? item.mainLocList[0].name : "";
-      const hotelName = item.hotelList.length>0 ? item.hotelList[0].name : "";
-      
-      // 使用 DOM 拼接代替 innerHTML
-      const flexDiv = document.createElement("div"); flexDiv.className="flex items-center gap-3";
-      const dot = document.createElement("span"); dot.className="dot-item"; dot.style.backgroundColor=item.dotColor;
-      flexDiv.appendChild(dot);
-      
-      const infoDiv = document.createElement("div"); infoDiv.className="flex-1";
-      const titleDiv = document.createElement("div"); titleDiv.className="font-medium";
-      const span = document.createElement("span"); span.contentEditable = true; span.className="edit-text"; span.textContent = `D${item.dayNum} ${item.location}`;
-      titleDiv.appendChild(span); infoDiv.appendChild(titleDiv);
-      
-      const subDiv = document.createElement("div"); subDiv.className="text-sm text-gray-500 mt-1";
-      const label = document.createElement("span"); label.contentEditable = true; label.className="edit-text label-edit"; label.textContent = item.dateLabel;
-      subDiv.appendChild(label);
-      if(item.dateStr) subDiv.append(`：${item.dateStr}`);
-      infoDiv.appendChild(subDiv);
-      
-      const hotelDiv = document.createElement("div"); hotelDiv.className="text-sm text-gray-500"; hotelDiv.textContent=`住宿：${hotelName}`;
-      infoDiv.appendChild(hotelDiv);
-      flexDiv.appendChild(infoDiv);
-      
-      const viewSpan = document.createElement("span"); viewSpan.className="text-blue-500 text-sm shrink-0"; viewSpan.textContent="查看详情";
-      flexDiv.appendChild(viewSpan);
-      overviewItem.appendChild(flexDiv);
-
-      overviewItem.onclick = (e)=>{ if(e.target.isContentEditable) return; activeView = item.dayNum; renderDayTabs(); renderContent(); }
+      const firstPath = item.pathList[0];
+      const mainName = firstPath?.mainLocList[0]?.name || "";
+      const hotelName = item.hotelList[0]?.name || "";
+      overviewItem.innerHTML = `
+        <div class="flex items-center gap-3">
+          <span class="dot-item" style="background-color:${item.dotColor}"></span>
+          <div class="flex-1">
+            <div class="font-medium">
+              <span contenteditable="true" class="edit-text">D${item.dayNum} ${item.location}</span>
+            </div>
+            <div class="text-sm text-gray-500 mt-1">
+              <span contenteditable="true" class="edit-text label-edit" onblur="updateSingleField(${item.dayNum},'dateLabel',this.innerText)">${item.dateLabel}</span>
+              ${item.dateStr ? `：${item.dateStr}` : ""}
+            </div>
+            <div class="text-sm text-gray-500"><span>住宿：</span>${hotelName}</div>
+          </div>
+          <span class="text-blue-500 text-sm shrink-0">查看详情</span>
+        </div>
+      `;
+      overviewItem.onclick = (e)=>{
+        if(e.target.isContentEditable) return;
+        activeView = item.dayNum; renderDayTabs(); renderContent();
+      }
       wrap.appendChild(overviewItem);
     })
   }else{
-    const item = window.tripData.find(d=>d.dayNum === activeView);
-    // 此处使用简洁的 innerHTML 构建，因输出直接来自数组，无用户输入HTML注入风险
+    const dayData = window.tripData.find(d=>d.dayNum === activeView);
     let timeHtml = "";
-    item.timeList.forEach((t,ti)=>{
+    dayData.timeList.forEach((t,ti)=>{
       let locHtml = "";
       t.locList.forEach((loc, li)=>{
         locHtml += `
         <div class="flex gap-2 mt-1 items-center flex-wrap">
-          <input class="border rounded-xl p-1 text-sm timeline-input" id="time-loc-name-${item.dayNum}-${ti}-${li}" value="${loc.name}" placeholder="地点名称" oninput="updateTimeLoc(${item.dayNum},${ti},${li},'name',this.value)">
-          <button onclick="debouncedGetSingleLocPos(${item.dayNum},${ti},${li})" class="bg-blue-400 text-white px-2 btn-cute text-xs">获取坐标</button>
-          <button onclick="delTimeLoc(${item.dayNum},${ti},${li})" class="bg-red-500 text-white btn-del-circle">×</button>
+          <input class="border rounded-xl p-1 text-sm timeline-input" value="${loc.name}" placeholder="地点名称" oninput="updateTimePointLoc(${dayData.dayNum},${ti},${li},'name',this.value)">
+          <button onclick="debouncedGetTimePointLoc(${dayData.dayNum},${ti},${li})" class="bg-blue-400 text-white px-2 btn-cute text-xs">获取坐标</button>
+          <button onclick="delTimePointLoc(${dayData.dayNum},${ti},${li})" class="bg-red-500 text-white btn-del-circle">×</button>
         </div>`;
       })
       timeHtml +=`
       <div class="flex flex-wrap gap-2 items-center mt-1">
-        <input type="time" value="${t.time}" oninput="updateTime(${item.dayNum},${ti},'time',this.value)" class="border rounded-xl p-1 text-sm timeline-time">
-        <input type="text" value="${t.event}" placeholder="记录事件" class="border rounded-xl p-1 text-sm timeline-input" id="time-event-${item.dayNum}-${ti}" oncompositionstart="handleCompStart(${item.dayNum},${ti})" oncompositionend="handleCompEnd(${item.dayNum},${ti},this.value)" oninput="handleInputTyping(${item.dayNum},${ti},this.value)">
-        <input type="number" id="time-cost-${item.dayNum}-${ti}" value="${t.cost||0}" placeholder="¥" oninput="updateTime(${item.dayNum},${ti},'cost',Number(this.value||0))" class="border rounded-xl p-1 text-sm timeline-cost">
-        <button onclick="addTimeLoc(${item.dayNum},${ti})" class="bg-sky-400 text-white px-2 btn-cute text-xs">➕地点</button>
-        <button onclick="delTime(${item.dayNum},${ti})" class="bg-red-500 text-white btn-del-circle">×</button>
+        <input type="time" value="${t.time}" oninput="updateTimePoint(${dayData.dayNum},${ti},'time',this.value)" class="border rounded-xl p-1 text-sm timeline-time">
+        <input 
+          type="text" 
+          value="${t.event}" 
+          placeholder="记录事件" 
+          class="border rounded-xl p-1 text-sm timeline-input"
+          oncompositionstart="compStart(${dayData.dayNum},${ti})"
+          oncompositionend="compEnd(${dayData.dayNum},${ti},this.value)"
+          oninput="compInput(${dayData.dayNum},${ti},this.value)"
+        >
+        <input type="number" value="${t.cost||0}" placeholder="¥" oninput="updateTimePoint(${dayData.dayNum},${ti},'cost',Number(this.value||0))" class="border rounded-xl p-1 text-sm timeline-cost">
+        <button onclick="addTimePointLoc(${dayData.dayNum},${ti})" class="bg-sky-400 text-white px-2 btn-cute text-xs">➕地点</button>
+        <button onclick="delTimePoint(${dayData.dayNum},${ti})" class="bg-red-500 text-white btn-del-circle">×</button>
         <div class="w-full pl-1 mt-1">${locHtml}</div>
       </div>`;
     })
 
-    let mainLocHtml = "";
-    item.mainLocList.forEach((loc,idx)=>{
-      mainLocHtml += `
-        <div class="flex flex-nowrap gap-2 mt-1 items-center">
-          <input class="flex-1 border rounded-2xl p-2 text-sm" id="main-loc-name-${item.dayNum}-${idx}" value="${loc.name}" placeholder="主线地点" oninput="updateMainLoc(${item.dayNum},${idx},'name',this.value)">
-          <button onclick="debouncedGetMainLocPos(${item.dayNum},${idx})" class="bg-blue-400 text-white px-3 btn-cute text-sm">获取坐标</button>
-          <button onclick="delMainLoc(${item.dayNum},${idx})" class="bg-red-500 text-white btn-del-circle">×</button>
-        </div>`
-    })
-    mainLocHtml += `<button onclick="addMainLoc(${item.dayNum})" class="mt-1 bg-green-400 text-white px-3 py-1 btn-cute text-sm w-fit">+新增主线地点</button>`;
+    let pathWrapHtml = "";
+    dayData.pathList.forEach((pathGroup, pathIdx)=>{
+      let mainLocHtml = "";
+      pathGroup.mainLocList.forEach((loc,idx)=>{
+        mainLocHtml += `
+          <div class="flex flex-nowrap gap-2 mt-1 items-center">
+            <input class="border rounded-2xl p-2 text-sm mainloc-half-input" value="${loc.name}" placeholder="主线地点" oninput="updatePathMain(${dayData.dayNum},${pathIdx},${idx},'name',this.value)">
+            <button onclick="debouncedGetMainLoc(${dayData.dayNum},${pathIdx},${idx})" class="bg-blue-400 text-white px-3 btn-cute text-sm">获取坐标</button>
+            <button onclick="delPathMain(${dayData.dayNum},${pathIdx},${idx})" class="bg-red-500 text-white btn-del-circle">×</button>
+          </div>`
+      })
+      mainLocHtml += `<button onclick="addPathMain(${dayData.dayNum},${pathIdx})" class="mt-1 bg-green-400 text-white px-3 py-1 btn-cute text-sm w-fit">+主线点位</button>`;
 
-    let timeCostHtml = "";
-    if(!item.timeCostList) item.timeCostList = [{content:""}];
-    item.timeCostList.forEach((tc,idx)=>{
-      timeCostHtml +=`
-        <div class="flex flex-nowrap gap-2 mt-1 items-center">
-          <input class="border rounded-2xl p-2 text-sm timecost-input" id="time-cost-input-${item.dayNum}-${idx}" value="${tc.content}" placeholder="耗时" oninput="updateTimeCost(${item.dayNum},${idx},this.value)">
-          <button onclick="delTimeCost(${item.dayNum},${idx})" class="bg-red-500 text-white btn-del-circle">×</button>
-        </div>`
-    })
-    timeCostHtml += `<button onclick="addTimeCost(${item.dayNum})" class="mt-1 bg-green-400 text-white px-3 py-1 btn-cute text-sm w-fit">+新增耗时</button>`;
+      let trafficHtml = "";
+      pathGroup.trafficList.forEach((tr,idx)=>{
+        trafficHtml +=`
+          <div class="flex flex-nowrap gap-2 mt-1 items-center">
+            <select class="border rounded-2xl p-2 text-sm traffic-select" onchange="updatePathTraffic(${dayData.dayNum},${pathIdx},${idx},this.value)">
+              <option value="">请选择</option>
+              <option value="🚗自驾" ${tr.content==="🚗自驾"?"selected":""}>🚗自驾</option>
+              <option value="🚍拼车/顺风车" ${tr.content==="🚍拼车/顺风车"?"selected":""}>🚍拼车/顺风车</option>
+              <option value="🚌大巴" ${tr.content==="🚌大巴"?"selected":""}>🚌大巴</option>
+              <option value="🚶徒步" ${tr.content==="🚶徒步"?"selected":""}>🚶徒步</option>
+              <option value="✈️飞机" ${tr.content==="✈️飞机"?"selected":""}>✈️飞机</option>
+              <option value="🚢轮船" ${tr.content==="🚢轮船"?"selected":""}>🚢轮船</option>
+              <option value="其他" ${tr.content==="其他"?"selected":""}>其他</option>
+            </select>
+            <button onclick="delPathTraffic(${dayData.dayNum},${pathIdx},${idx})" class="bg-red-500 text-white btn-del-circle">×</button>
+          </div>`
+      })
+      trafficHtml += `<button onclick="addPathTraffic(${dayData.dayNum},${pathIdx})" class="mt-1 bg-green-400 text-white px-3 py-1 btn-cute text-sm w-fit">+交通</button>`;
 
-    let trafficHtml = "";
-    item.trafficList.forEach((tr,idx)=>{
-      trafficHtml +=`
-        <div class="flex flex-nowrap gap-2 mt-1 items-center">
-          <select class="border rounded-2xl p-2 text-sm traffic-select" id="traffic-select-${item.dayNum}-${idx}" oninput="updateTraffic(${item.dayNum},${idx},this.value)">
-            <option value="">请选择</option>
-            <option value="🚗自驾" ${tr.content==="🚗自驾"?"selected":""}>🚗自驾</option>
-            <option value="🚍拼车/顺风车" ${tr.content==="🚍拼车/顺风车"?"selected":""}>🚍拼车/顺风车</option>
-            <option value="🚌大巴" ${tr.content==="🚌大巴"?"selected":""}>🚌大巴</option>
-            <option value="🚶徒步" ${tr.content==="🚶徒步"?"selected":""}>🚶徒步</option>
-            <option value="✈️飞机" ${tr.content==="✈️飞机"?"selected":""}>✈️飞机</option>
-            <option value="🚢轮船" ${tr.content==="🚢轮船"?"selected":""}>🚢轮船</option>
-            <option value="其他" ${tr.content==="其他"?"selected":""}>其他</option>
-          </select>
-          <button onclick="delTraffic(${item.dayNum},${idx})" class="bg-red-500 text-white btn-del-circle">×</button>
-        </div>`
+      let timeCostHtml = "";
+      pathGroup.timeCostList.forEach((tc,idx)=>{
+        timeCostHtml +=`
+          <div class="flex flex-nowrap gap-2 mt-1 items-center">
+            <input class="border rounded-2xl p-2 text-sm timecost-input" value="${tc.content}" placeholder="耗时" oninput="updatePathCost(${dayData.dayNum},${pathIdx},${idx},this.value)">
+            <button onclick="delPathCost(${dayData.dayNum},${pathIdx},${idx})" class="bg-red-500 text-white btn-del-circle">×</button>
+          </div>`
+      })
+      timeCostHtml += `<button onclick="addPathCost(${dayData.dayNum},${pathIdx})" class="mt-1 bg-green-400 text-white px-3 py-1 btn-cute text-sm w-fit">+耗时</button>`;
+
+      pathWrapHtml += `
+        <div class="path-group-wrap">
+          <div class="flex justify-between items-center mb-3">
+            <span class="font-medium text-sm">路径组 ${pathIdx+1}</span>
+            <button onclick="delPathGroup(${dayData.dayNum},${pathIdx})" class="bg-red-100 text-red-500 btn-cute text-xs">删除本组路径</button>
+          </div>
+          <div class="path-row-grid">
+            <div>
+              <div class="text-xs text-gray-400 mb-1">主线行程定位（输入框减半）</div>
+              ${mainLocHtml}
+            </div>
+            <div>
+              <div class="text-xs text-gray-400 mb-1">交通备注</div>
+              ${trafficHtml}
+            </div>
+            <div>
+              <div class="text-xs text-gray-400 mb-1">花费时间</div>
+              ${timeCostHtml}
+            </div>
+          </div>
+        </div>
+      `
     })
-    trafficHtml += `<button onclick="addTraffic(${item.dayNum})" class="mt-1 bg-green-400 text-white px-3 py-1 btn-cute text-sm w-fit">+新增交通</button>`;
 
     let hotelHtml = "";
-    item.hotelList.forEach((ht,idx)=>{
+    dayData.hotelList.forEach((ht,idx)=>{
+      let addrTip = ht.addrDetail ? `<div class="addr-desc-text">📍${ht.addrDetail}</div>` : "";
       hotelHtml +=`
         <div class="flex flex-wrap gap-3 mt-2 items-center bg-slate-50 p-3 rounded-2xl">
-          <input class="flex-1 border rounded-xl p-2 text-sm" id="hotel-name-${item.dayNum}-${idx}" value="${ht.name}" placeholder="住宿名称" oninput="updateHotel(${item.dayNum},${idx},'name',this.value)">
-          <button onclick="debouncedGetHotelLocPos(${item.dayNum},${idx})" class="bg-sky-400 text-white px-3 btn-cute">📍坐标</button>
-          <button onclick="delHotel(${item.dayNum},${idx})" class="bg-rose-400 text-white btn-del-circle">×</button>
+          <input class="border rounded-xl p-2 text-sm hotel-half-input" value="${ht.name}" placeholder="住宿名称" oninput="updateHotel(${dayData.dayNum},${idx},'name',this.value)">
+          <button onclick="debouncedGetHotelLoc(${dayData.dayNum},${idx})" class="bg-sky-400 text-white px-3 btn-cute">获取街道级坐标</button>
+          <button onclick="delHotel(${dayData.dayNum},${idx})" class="bg-rose-400 text-white btn-del-circle">×</button>
+          ${addrTip}
         </div>`
     })
-    hotelHtml += `<button onclick="addHotel(${item.dayNum})" class="mt-3 bg-emerald-400 text-white px-4 py-2 btn-cute w-full">➕新增住宿</button>`;
+    hotelHtml += `<button onclick="addHotel(${dayData.dayNum})" class="mt-3 bg-emerald-400 text-white px-4 py-2 btn-cute w-full">➕新增住宿</button>`;
 
-    const noteData = item.dayNote;
-    const detailCard = document.createElement("div");
-    detailCard.className = "bg-white rounded-3xl p-4 card-shadow";
-    detailCard.innerHTML = `
+    const note = dayData.dayNote;
+    const card = document.createElement("div");
+    card.className = "bg-white rounded-3xl p-4 card-shadow";
+    card.innerHTML = `
       <div class="flex justify-between items-center mb-3">
         <div class="flex items-center gap-2">
-          <span class="dot-item" style="background-color:${item.dotColor}"></span>
+          <span class="dot-item" style="background-color:${dayData.dotColor}"></span>
           <h3 class="font-bold text-lg">
-            <span contenteditable="true" class="edit-text" id="header-daynum-${item.dayNum}">D${item.dayNum}</span>
-            <span contenteditable="true" class="edit-text ml-2" id="header-location-${item.dayNum}">${item.location}</span>
+            <span contenteditable="true" class="edit-text">D${dayData.dayNum}</span>
+            <span contenteditable="true" class="edit-text ml-2" onblur="updateSingleField(${dayData.dayNum},'location',this.innerText)">${dayData.location}</span>
           </h3>
         </div>
-        <button onclick="deleteDay(${item.dayNum})" class="text-red-500 text-sm btn-cute px-3 py-1 bg-red-100">删除当日</button>
+        <button onclick="deleteDay(${dayData.dayNum})" class="text-red-500 text-sm btn-cute px-3 py-1 bg-red-100">删除当日</button>
       </div>
+
       <div class="mb-4">
-        <label class="text-sm text-gray-500 label-edit" contenteditable="true" id="dateLabel-${item.dayNum}">${item.dateLabel}</label>
-        ${item.dateStr ? `<div class="mt-1 text-gray-600" id="dateStr-${item.dayNum}">${item.dateStr}</div>` : ""}
+        <label class="text-sm text-gray-500 label-edit" contenteditable="true" onblur="updateSingleField(${dayData.dayNum},'dateLabel',this.innerText)">${dayData.dateLabel}</label>
+        ${dayData.dateStr ? `<div class="mt-1 text-gray-600">${dayData.dateStr}</div>` : ""}
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-2 mb-4">
-        <div><label class="text-sm text-gray-500 label-edit" contenteditable="true" id="trafficLabel-${item.dayNum}">${item.trafficLabel}</label>${trafficHtml}</div>
-        <div><label class="text-sm text-gray-500 label-edit" contenteditable="true" id="timeCostLabel-${item.dayNum}">${item.timeCostLabel}</label>${timeCostHtml}</div>
-        <div><label class="text-sm text-gray-500 label-edit" contenteditable="true" id="mainLocLabel-${item.dayNum}">${item.mainLocLabel}</label>${mainLocHtml}</div>
+
+      <div class="mb-4">
+        <div class="flex justify-between items-center mb-2">
+          <span class="text-sm font-medium">当日路径</span>
+          <button onclick="addNewPathGroup(${dayData.dayNum})" class="bg-green-500 text-white px-3 py-1 btn-cute text-sm">新增路径组</button>
+        </div>
+        ${pathWrapHtml}
       </div>
-      <div class="mb-4"><label class="text-sm text-gray-500 label-edit" contenteditable="true" id="hotelLabel-${item.dayNum}">${item.hotelLabel}</label>${hotelHtml}</div>
+
+      <div class="mb-4">
+        <label class="text-sm text-gray-500 label-edit" contenteditable="true" onblur="updateSingleField(${dayData.dayNum},'hotelLabel',this.innerText)">${dayData.hotelLabel}</label>
+        ${hotelHtml}
+      </div>
+
       <div class="border-y py-3 my-3">
         <div class="flex justify-between items-center mb-2">
-          <p class="text-sm font-medium label-edit" contenteditable="true" id="timeLineLabel-${item.dayNum}">${item.timeLineLabel}</p>
-          <button onclick="addTimePoint(${item.dayNum})" class="bg-green-400 text-white px-3 py-1 btn-cute text-xs">新增时间点</button>
+          <p class="text-sm font-medium label-edit" contenteditable="true" onblur="updateSingleField(${dayData.dayNum},'timeLineLabel',this.innerText)">${dayData.timeLineLabel}</p>
+          <button onclick="addTimePoint(${dayData.dayNum})" class="bg-green-400 text-white px-3 py-1 btn-cute text-xs">新增时间点</button>
         </div>
         <div>${timeHtml}</div>
         <div class="mt-3 flex items-center gap-2 bg-orange-5 rounded-2xl p-3">
           <span class="text-2xl">💰</span>
-          <div><div class="text-sm text-gray-500">当日合计花费</div><div class="font-semibold text-red-500" id="day-total-${item.dayNum}">¥${calcSingleDayCost(item)}</div></div>
+          <div>
+            <div class="text-sm text-gray-500">当日合计花费</div>
+            <div class="font-semibold text-red-500">¥${calcSingleDayCost(dayData)}</div>
+          </div>
         </div>
       </div>
+
       <div class="mt-3">
         <div class="flex flex-wrap gap-3 items-center mb-2">
-          <span class="text-sm font-medium label-edit" contenteditable="true" id="noteLabel-${item.dayNum}">${item.noteLabel}</span>
-          <select id="note-weight-${item.dayNum}" class="border rounded-xl px-2 py-1 text-sm">
-            <option value="normal" ${noteData.weight==="normal"?"selected":""}>常规字重</option>
-            <option value="medium" ${noteData.weight==="medium"?"selected":""}>中等加粗</option>
-            <option value="bold" ${noteData.weight==="bold"?"selected":""}>粗体</option>
+          <span class="text-sm font-medium label-edit" contenteditable="true" onblur="updateSingleField(${dayData.dayNum},'noteLabel',this.innerText)">${dayData.noteLabel}</span>
+          <select onchange="setNoteWeight(${dayData.dayNum},this.value)" class="border rounded-xl px-2 py-1 text-sm">
+            <option value="normal" ${note.weight==="normal"?"selected":""}>常规字重</option>
+            <option value="medium" ${note.weight==="medium"?"selected":""}>中等加粗</option>
+            <option value="bold" ${note.weight==="bold"?"selected":""}>粗体</option>
           </select>
-          <select id="note-size-${item.dayNum}" class="border rounded-xl px-2 py-1 text-sm">
-            <option value="12" ${noteData.size==="12"?"selected":""}>12px小号</option>
-            <option value="14" ${noteData.size==="14"?"selected":""}>14px默认</option>
-            <option value="16" ${noteData.size==="16"?"selected":""}>16px大号</option>
+          <select onchange="setNoteSize(${dayData.dayNum},this.value)" class="border rounded-xl px-2 py-1 text-sm">
+            <option value="12" ${note.size==="12"?"selected":""}>12px小号</option>
+            <option value="14" ${note.size==="14"?"selected":""}>14px默认</option>
+            <option value="16" ${note.size==="16"?"selected":""}>16px大号</option>
           </select>
-          <input type="color" value="${noteData.color}" id="note-color-${item.dayNum}" class="w-8 h-8 rounded-full border">
+          <input type="color" value="${note.color}" oninput="setNoteColor(${dayData.dayNum},this.value)" class="w-8 h-8 rounded-full border">
         </div>
-        <div contenteditable="true" class="edit-text border rounded-2xl p-3" style="font-weight:${noteData.weight};font-size:${noteData.size}px;color:${noteData.color};" id="note-content-${item.dayNum}">${noteData.text}</div>
+        <div contenteditable="true" class="edit-text border rounded-2xl p-3" style="font-weight:${note.weight};font-size:${note.size}px;color:${note.color};" onblur="setNoteText(${dayData.dayNum},this.innerText)">${note.text}</div>
       </div>
     `;
-    wrap.appendChild(detailCard);
+    wrap.appendChild(card);
   }
 }
 
-// ---------------- 数据交互层 (纯JS逻辑) ----------------
-function handleCompStart(dayNum, timeIdx) {
-  const dayItem = window.tripData.find(d => d.dayNum === dayNum);
-  dayItem.timeList[timeIdx].isComposing = true;
-}
-function handleCompEnd(dayNum, timeIdx, val) {
-  const dayItem = window.tripData.find(d => d.dayNum === dayNum);
-  dayItem.timeList[timeIdx].isComposing = false;
-  dayItem.timeList[timeIdx].event = val;
-  saveLocalData();
-}
-function handleInputTyping(dayNum, timeIdx, val) {
-  const dayItem = window.tripData.find(d => d.dayNum === dayNum);
-  if (dayItem.timeList[timeIdx].isComposing) return;
-  dayItem.timeList[timeIdx].event = val;
-  saveLocalData();
-}
-
-function addMainLoc(dayNum){
+// 路径组操作
+function addNewPathGroup(dayNum){
   const d = window.tripData.find(x=>x.dayNum === dayNum);
-  d.mainLocList.push({name:"", pos:null});
+  d.pathList.push({
+    mainLocList: [],
+    trafficList: [{content:""}],
+    timeCostList: [{content:""}]
+  })
   saveLocalData(); renderContent();
 }
-function updateMainLoc(dayNum, idx, key, val){
+function delPathGroup(dayNum, pathIdx){
   const d = window.tripData.find(x=>x.dayNum === dayNum);
-  d.mainLocList[idx][key] = val;
-  const el = document.getElementById(`main-loc-name-${dayNum}-${idx}`);
-  if(el) el.value = val; // 保证DOM与数据同步
-  saveLocalData();
-}
-function delMainLoc(dayNum, idx){
-  const d = window.tripData.find(x=>x.dayNum === dayNum);
-  d.mainLocList.splice(idx,1);
+  d.pathList.splice(pathIdx,1);
   saveLocalData(); renderContent();
 }
-function getMainLocPos(dayNum, idx){
+function addPathMain(dayNum, pathIdx){
   const d = window.tripData.find(x=>x.dayNum === dayNum);
-  const item = d.mainLocList[idx];
-  if(!item.name) return alert("请输入主线地点名称");
-  AMap.plugin("AMap.Geocoder",()=>{
-    const g = new AMap.Geocoder();
-    g.getLocation(item.name,(s,res)=>{
-      if(s==="complete"&&res.geocodes.length){ item.pos = res.geocodes[0].location; saveLocalData(); refreshMapRoute(); alert("主线坐标获取成功，地图已更新路线"); }
-      else alert("未匹配到该地点坐标");
-    })
+  d.pathList[pathIdx].mainLocList.push({name:"", pos:null});
+  saveLocalData(); renderContent();
+}
+function updatePathMain(dayNum, pathIdx, idx, key, val){
+  const d = window.tripData.find(x=>x.dayNum === dayNum);
+  d.pathList[pathIdx].mainLocList[idx][key] = val;
+  saveLocalData();
+}
+function delPathMain(dayNum, pathIdx, idx){
+  const d = window.tripData.find(x=>x.dayNum === dayNum);
+  d.pathList[pathIdx].mainLocList.splice(idx,1);
+  saveLocalData(); renderContent();
+}
+// 定位函数（修复跨域、缓存、西藏自治区城市编码）
+function getMainLocPos(dayNum, pathIdx, idx){
+  if(!map) return alert("地图还未加载完成，请稍后重试");
+  const d = window.tripData.find(x=>x.dayNum === dayNum);
+  const loc = d.pathList[pathIdx].mainLocList[idx];
+  const addr = loc.name.trim();
+  if(!addr) return alert("请填写主线地点名称再获取坐标");
+  if(posCache[addr]){
+    loc.pos = posCache[addr];
+    saveLocalData();
+    refreshMapRoute();
+    alert("坐标已从缓存读取，地图刷新完成");
+    return;
+  }
+  AMap.plugin("AMap.Geocoder", ()=>{
+    try {
+      const geo = new AMap.Geocoder({city:"西藏自治区"});
+      geo.getLocation(addr, (status, res)=>{
+        if(status === "complete" && res.geocodes && res.geocodes.length > 0){
+          loc.pos = res.geocodes[0].location;
+          posCache[addr] = loc.pos;
+          saveLocalData();
+          refreshMapRoute();
+          alert(`坐标获取成功：经度${loc.pos.lng} 纬度${loc.pos.lat}`);
+        }else{
+          console.error("地理编码无匹配结果", res);
+          alert("未查询到该地点坐标，请修改地名（如拉萨、纳木错）重试");
+        }
+      })
+    } catch(err){
+      console.error("地理编码插件加载失败", err);
+      alert("定位插件加载失败！请勿直接双击html打开，使用VSCode Live Server运行页面");
+    }
   })
 }
-
-function addTimeCost(dayNum){
+function addPathTraffic(dayNum, pathIdx){
   const d = window.tripData.find(x=>x.dayNum === dayNum);
-  if(!d.timeCostList) d.timeCostList = [];
-  d.timeCostList.push({content:""});
+  d.pathList[pathIdx].trafficList.push({content:""});
   saveLocalData(); renderContent();
 }
-function updateTimeCost(dayNum, idx, val){
+function updatePathTraffic(dayNum, pathIdx, idx, val){
   const d = window.tripData.find(x=>x.dayNum === dayNum);
-  d.timeCostList[idx].content = val;
-  const el = document.getElementById(`time-cost-input-${dayNum}-${idx}`); if(el) el.value = val;
+  d.pathList[pathIdx].trafficList[idx].content = val;
   saveLocalData();
 }
-function delTimeCost(dayNum, idx){
+function delPathTraffic(dayNum, pathIdx, idx){
   const d = window.tripData.find(x=>x.dayNum === dayNum);
-  d.timeCostList.splice(idx,1);
+  d.pathList[pathIdx].trafficList.splice(idx,1);
   saveLocalData(); renderContent();
 }
-
-function addTraffic(dayNum){
+function addPathCost(dayNum, pathIdx){
   const d = window.tripData.find(x=>x.dayNum === dayNum);
-  d.trafficList.push({content:""});
+  d.pathList[pathIdx].timeCostList.push({content:""});
   saveLocalData(); renderContent();
 }
-function updateTraffic(dayNum, idx, val){
+function updatePathCost(dayNum, pathIdx, idx, val){
   const d = window.tripData.find(x=>x.dayNum === dayNum);
-  d.trafficList[idx].content = val;
-  const el = document.getElementById(`traffic-select-${dayNum}-${idx}`); if(el) el.value = val;
+  d.pathList[pathIdx].timeCostList[idx].content = val;
   saveLocalData();
 }
-function delTraffic(dayNum, idx){
+function delPathCost(dayNum, pathIdx, idx){
   const d = window.tripData.find(x=>x.dayNum === dayNum);
-  d.trafficList.splice(idx,1);
+  d.pathList[pathIdx].timeCostList.splice(idx,1);
   saveLocalData(); renderContent();
 }
 
+// 住宿定位
 function addHotel(dayNum){
   const d = window.tripData.find(x=>x.dayNum === dayNum);
-  d.hotelList.push({name:"", pos:null});
+  d.hotelList.push({name:"", pos:null, addrDetail:""});
   saveLocalData(); renderContent();
 }
 function updateHotel(dayNum, idx, key, val){
   const d = window.tripData.find(x=>x.dayNum === dayNum);
   d.hotelList[idx][key] = val;
-  const el = document.getElementById(`hotel-name-${dayNum}-${idx}`); if(el) el.value = val;
   saveLocalData();
 }
 function delHotel(dayNum, idx){
@@ -517,87 +679,188 @@ function delHotel(dayNum, idx){
   saveLocalData(); renderContent();
 }
 function getHotelLocPos(dayNum, idx){
+  if(!map) return alert("地图还未加载完成，请稍后重试");
   const d = window.tripData.find(x=>x.dayNum === dayNum);
   const ht = d.hotelList[idx];
-  if(!ht.name) return alert("请填写住宿名称");
+  const addr = ht.name.trim();
+  if(!addr) return alert("请输入住宿名称");
+  if(posCache[addr]){
+    ht.pos = posCache[addr];
+    saveLocalData();
+    renderContent();
+    alert("坐标从缓存读取成功");
+    return;
+  }
   AMap.plugin("AMap.Geocoder",()=>{
-    const g = new AMap.Geocoder();
-    g.getLocation(ht.name,(s,res)=>{
-      if(s==="complete"&&res.geocodes.length){ ht.pos = res.geocodes[0].location; saveLocalData(); alert("住宿坐标保存成功，不会展示在总路线地图"); }
-      else alert("未找到该住宿坐标");
-    })
+    try{
+      const geo = new AMap.Geocoder({city:"西藏自治区", extensions:"all"});
+      geo.getLocation(addr,(s,res)=>{
+        if(s === "complete" && res.geocodes.length){
+          const geoData = res.geocodes[0];
+          ht.pos = geoData.location;
+          posCache[addr] = ht.pos;
+          const province = geoData.province || "";
+          const city = geoData.city || "";
+          const district = geoData.district || "";
+          const street = geoData.street || geoData.streetNumber || "";
+          ht.addrDetail = `${province}${city}${district}${street}`;
+          saveLocalData();
+          renderContent();
+          alert(`住宿街道坐标保存成功：${ht.addrDetail}`);
+        }else{
+          alert("未匹配到该住宿地址，请修改名称");
+        }
+      })
+    }catch(err){
+      console.error("住宿地理编码异常", err);
+      alert("定位插件加载失败，请勿直接双击html打开文件，使用本地服务运行");
+    }
   })
 }
 
+// 时间点相关
+function compStart(dayNum, ti){
+  window.tripData.find(d=>d.dayNum === dayNum).timeList[ti].isComposing = true;
+}
+function compEnd(dayNum, ti, val){
+  const t = window.tripData.find(d=>d.dayNum === dayNum).timeList[ti];
+  t.isComposing = false;
+  t.event = val; saveLocalData();
+}
+function compInput(dayNum, ti, val){
+  const t = window.tripData.find(d=>d.dayNum === dayNum).timeList[ti];
+  if(t.isComposing) return;
+  t.event = val; saveLocalData();
+}
 function addTimePoint(dayNum){
-  const target = window.tripData.find(d=>d.dayNum === dayNum);
-  target.timeList.push({time:"08:00",event:"",cost:0,locList:[{name:"",pos:null}],isComposing:false});
+  const d = window.tripData.find(x=>x.dayNum === dayNum);
+  d.timeList.push({time:"08:00",event:"",cost:0,locList:[{name:"",pos:null}],isComposing:false});
   saveLocalData(); renderContent();
 }
-function updateTime(dayNum, idx, key, val){
-  const target = window.tripData.find(d=>d.dayNum === dayNum);
-  target.timeList[idx][key] = val;
+function updateTimePoint(dayNum, ti, key, val){
+  const d = window.tripData.find(x=>x.dayNum === dayNum);
+  d.timeList[ti][key] = val;
   saveLocalData();
-  if(key === "cost"){ calcTotalMoney(); refreshDayTotalText(target); }
-  if(key === "dateStr") renderDayTabs();
+  if(key === "cost"){
+    calcTotalMoney();
+    refreshDayTotalText(d);
+  }
 }
-function delTime(dayNum, idx){
-  const target = window.tripData.find(d=>d.dayNum === dayNum);
-  target.timeList.splice(idx,1);
+function delTimePoint(dayNum, ti){
+  const d = window.tripData.find(x=>x.dayNum === dayNum);
+  d.timeList.splice(ti,1);
   saveLocalData(); renderContent();
 }
-
-function addTimeLoc(dayNum, timeIdx){
+function addTimePointLoc(dayNum, ti, li){
   const d = window.tripData.find(x=>x.dayNum === dayNum);
-  d.timeList[timeIdx].locList.push({name:"", pos:null});
+  d.timeList[ti].locList.push({name:"",pos:null});
   saveLocalData(); renderContent();
 }
-function updateTimeLoc(dayNum, timeIdx, locIdx, key, val){
+function updateTimePointLoc(dayNum, ti, li, key, val){
   const d = window.tripData.find(x=>x.dayNum === dayNum);
-  d.timeList[timeIdx].locList[locIdx][key] = val;
-  const el = document.getElementById(`time-loc-name-${dayNum}-${timeIdx}-${locIdx}`); if(el) el.value = val;
+  d.timeList[ti].locList[li][key] = val;
   saveLocalData();
 }
-function delTimeLoc(dayNum, timeIdx, locIdx){
+function delTimePointLoc(dayNum, ti, li){
   const d = window.tripData.find(x=>x.dayNum === dayNum);
-  d.timeList[timeIdx].locList.splice(locIdx,1);
+  d.timeList[ti].locList.splice(li,1);
   saveLocalData(); renderContent();
 }
-function getSingleLocPos(dayNum, timeIdx, locIdx){
+function getSingleLocPos(dayNum, ti, li){
+  if(!map) return alert("地图还未加载完成，请稍后重试");
   const d = window.tripData.find(x=>x.dayNum === dayNum);
-  const loc = d.timeList[timeIdx].locList[locIdx];
-  if(!loc.name) return alert("请输入地点名称");
+  const loc = d.timeList[ti].locList[li];
+  const addr = loc.name.trim();
+  if(!addr) return alert("请输入地点名称");
+  if(posCache[addr]){
+    loc.pos = posCache[addr];
+    saveLocalData();
+    refreshMapRoute();
+    alert("坐标缓存读取完成");
+    return;
+  }
   AMap.plugin("AMap.Geocoder",()=>{
-    const g = new AMap.Geocoder();
-    g.getLocation(loc.name,(s,res)=>{
-      if(s==="complete"&&res.geocodes.length){ loc.pos = res.geocodes[0].location; saveLocalData(); alert("点位坐标获取成功"); }
-      else alert("未匹配到该地点");
-    })
+    try{
+      const geo = new AMap.Geocoder({city:"西藏自治区"});
+      geo.getLocation(addr,(s,res)=>{
+        if(s === "complete" && res.geocodes.length){
+          loc.pos = res.geocodes[0].location;
+          posCache[addr] = loc.pos;
+          saveLocalData();
+          refreshMapRoute();
+          alert("点位坐标获取完成");
+        }else{
+          alert("无匹配地点，请更换地名");
+        }
+      })
+    }catch(err){
+      console.error("时间点定位异常", err);
+      alert("定位插件加载失败，请使用本地服务打开页面");
+    }
   })
 }
 
-function setNoteText(dayNum, text){ const d = window.tripData.find(x=>x.dayNum === dayNum); d.dayNote.text = text; saveLocalData(); }
-function setNoteWeight(dayNum, val){ const d = window.tripData.find(x=>x.dayNum === dayNum); d.dayNote.weight = val; saveLocalData(); renderContent(); }
-function setNoteSize(dayNum, val){ const d = window.tripData.find(x=>x.dayNum === dayNum); d.dayNote.size = val; saveLocalData(); renderContent(); }
-function setNoteColor(dayNum, val){ const d = window.tripData.find(x=>x.dayNum === dayNum); d.dayNote.color = val; saveLocalData(); renderContent(); }
+// 随笔样式
+function setNoteText(dayNum, text){
+  window.tripData.find(d=>d.dayNum === dayNum).dayNote.text = text;
+  saveLocalData();
+}
+function setNoteWeight(dayNum, val){
+  const d = window.tripData.find(x=>x.dayNum === dayNum);
+  d.dayNote.weight = val; saveLocalData(); renderContent();
+}
+function setNoteSize(dayNum, val){
+  const d = window.tripData.find(x=>x.dayNum === dayNum);
+  d.dayNote.size = val; saveLocalData(); renderContent();
+}
+function setNoteColor(dayNum, val){
+  const d = window.tripData.find(x=>x.dayNum === dayNum);
+  d.dayNote.color = val; saveLocalData(); renderContent();
+}
 
+// 新增/删除天数
 function addNewDay(){
-  const newNum = window.tripData.length + 1;
+  const newId = window.tripData.length + 1;
   window.tripData.push({
-    dayNum: newNum, location:"请填写当日路线", dateStr:"", dateLabel:"日期", mainLocLabel:"主线行程定位", timeCostLabel:"花费时间", trafficLabel:"交通备注", hotelLabel:"住宿地点", timeLineLabel:"当日时间线", noteLabel:"当日小结随笔备注",
-    mainLocList:[], timeCostList:[{content:""}], trafficList:[{content:""}], hotelList:[], timeList:[],
+    dayNum: newId,
+    location:"请填写当日路线",
+    dateStr:"",
+    dateLabel:"日期",
+    hotelLabel:"住宿地点",
+    timeLineLabel:"当日时间线",
+    noteLabel:"当日小结随笔备注",
+    pathList: [{
+      mainLocList: [],
+      trafficList: [{content:""}],
+      timeCostList: [{content:""}]
+    }],
+    hotelList:[],
+    timeList:[],
     dayNote:{text:"", weight:"normal", size:"14", color:"#333333"},
-    dotColor: colorPool[(newNum-1) % colorPool.length]
+    dotColor: colorPool[(newId-1) % colorPool.length]
   })
   saveLocalData(); renderDayTabs(); renderContent();
 }
 function deleteDay(num){
   window.tripData = window.tripData.filter(d=>d.dayNum !== num);
-  window.tripData.forEach((item,idx)=>{ item.dayNum = idx+1; item.dotColor = colorPool[idx % colorPool.length]; })
+  window.tripData.forEach((item,idx)=>{
+    item.dayNum = idx+1;
+    item.dotColor = colorPool[idx % colorPool.length];
+  })
   if(activeView === num) activeView = "overview";
   saveLocalData(); renderDayTabs(); renderContent();
 }
 
+function updateSingleField(dayNum, field, val){
+  const d = window.tripData.find(x=>x.dayNum === dayNum);
+  d[field] = val;
+  saveLocalData();
+}
+
+// 批量导入导出
+function toggleImportBox(){
+  document.getElementById("importBox").classList.toggle("hidden");
+}
 function batchImport(){
   const text = document.getElementById("batch-input").value.trim();
   if(!text) return alert("请粘贴行程文本");
@@ -605,12 +868,25 @@ function batchImport(){
   lines.forEach(line=>{
     const match = line.match(/D(\d+)[:：]\s*(.+?)[,，住宿](.+)/);
     if(!match) return;
-    const dayNum = Number(match[1]); const loc = match[2].trim(); const hotel = match[3].trim();
-    const exist = window.tripData.find(d=>d.dayNum === dayNum);
-    if(exist) return;
+    const dn = Number(match[1]);
+    const locText = match[2].trim();
+    const hotelText = match[3].trim();
+    if(window.tripData.find(d=>d.dayNum === dn)) return;
     window.tripData.push({
-      dayNum, location:loc, dateStr:"", dateLabel:"日期", mainLocLabel:"主线行程定位", timeCostLabel:"花费时间", trafficLabel:"交通备注", hotelLabel:"住宿地点", timeLineLabel:"当日时间线", noteLabel:"当日小结随笔备注",
-      mainLocList:[{name:loc.split("→")[0].trim(), pos:null}], timeCostList:[{content:""}], trafficList:[{content:""}], hotelList:[{name:hotel, pos:null}], timeList:[],
+      dayNum: dn,
+      location:locText,
+      dateStr:"",
+      dateLabel:"日期",
+      hotelLabel:"住宿地点",
+      timeLineLabel:"当日时间线",
+      noteLabel:"当日小结随笔备注",
+      pathList: [{
+        mainLocList: [{name:locText.split("→")[0].trim(), pos:null}],
+        trafficList: [{content:""}],
+        timeCostList: [{content:""}]
+      }],
+      hotelList:[{name:hotelText, pos:null, addrDetail:""}],
+      timeList:[],
       dayNote:{text:"", weight:"normal", size:"14", color:"#333333"},
       dotColor: colorPool[window.tripData.length % colorPool.length]
     })
@@ -619,39 +895,13 @@ function batchImport(){
   document.getElementById("batch-input").value = "";
   alert("批量导入完成");
 }
-function toggleImportBox(){
-  document.getElementById("importBox").classList.toggle("hidden");
-}
-
 function exportBackup(){
-  const dataStr = JSON.stringify(window.tripData);
-  const uint8Array = pako.gzip(dataStr);
-  const blob = new Blob([uint8Array], {type: 'application/octet-stream'});
-  const url = URL.createObjectURL(blob);
+  const jsonStr = JSON.stringify(window.tripData,null,2);
+  const url = "data:text/json;charset=utf-8," + encodeURIComponent(jsonStr);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "西藏行程备份.gz";
+  a.download = "西藏行程备份.json";
   a.click();
-  URL.revokeObjectURL(url);
-}
-function importCompressed(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const uint8Array = new Uint8Array(e.target.result);
-      const jsonStr = pako.ungzip(uint8Array, {to: 'string'});
-      const data = JSON.parse(jsonStr);
-      window.tripData = data;
-      saveLocalData();
-      activeView = "overview";
-      renderDayTabs(); renderContent(); refreshMapRoute(); calcTotalMoney();
-      alert("导入恢复成功！");
-    } catch (err) { alert("导入失败，文件格式可能有误或损坏。"); }
-  };
-  reader.readAsArrayBuffer(file);
-  event.target.value = '';
 }
 </script>
 </body>
